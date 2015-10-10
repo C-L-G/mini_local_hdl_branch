@@ -94,33 +94,88 @@ class HDLBranch
     end
 
 
-    def down_branch
-        return "NOT MASTER BRANCH" if @master_branch.empty?
+    def download
+        return "DONT HAVE MASTER BRANCH" if @master_branch.empty?
         create_zip_bak @cur_branch_path
         master_path = @master_branch.last
-        mp = Dir::entries(master_path)
-        mp = mp - %w(. ..)
-        mp.each do |fitem|
-            maser_item = File::join(master_path,fitem)
-            slave_item = File::join(@cur_branch_path,fitem)
-            cp_item maser_item,slave_item
-        end
+        #mp = Dir::entries(master_path)
+        #mp = mp - %w(. ..)
+        #mp.each do |fitem|
+        #    maser_item = File::join(master_path,fitem)
+        #    slave_item = File::join(@cur_branch_path,fitem)
+        #    cp_item maser_item,slave_item
+        #end
+        cp_item master_path,@cur_branch_path
+        update_path @cur_branch_path,master_path,"master_path"
+        update_script  @cur_branch_path,master_path
         "DOWN BRANCH SUCCESS"
     end
 
-    def up_branch
-        return "NOT MASTER BRANCH" if @master_branch.empty?
+    def commit_up
+        return "DONT HAVE MASTER BRANCH" if @master_branch.empty?
         master_path = @master_branch.last
         create_zip_bak master_path
-        mp = Dir::entries(@cur_branch_path)
-        mp = mp - %w(. ..)
-        mp.each do |fitem|
-            maser_item = File::join(master_path,fitem)
-            slave_item = File::join(@cur_branch_path,fitem)
-            cp_item slave_item,maser_item
-        end
+        #mp = Dir::entries(@cur_branch_path)
+        #mp = mp - %w(. ..)
+        #mp.each do |fitem|
+        #    maser_item = File::join(master_path,fitem)
+        #    slave_item = File::join(@cur_branch_path,fitem)
+        #    cp_item slave_item,maser_item
+        #end
+        cp_item @cur_branch_path,master_path
+        update_path @cur_branch_path,master_path,"slave_path"
+        update_script  @cur_branch_path,master_path
         "UP BRANCH SUCCESS"
     end
+
+    def sync_fork
+        return "DONT HAVE SLAVE BRANCH" if @slave_branch.empty?
+        @slave_branch.each do |sb|
+            create_zip_bak sb
+            cp_item @cur_branch_path,sb
+            update_path @cur_branch_path,sb,"master_path"
+            update_script  @cur_branch_path,sb
+        end
+        "SYNC FORK SUCCESS"
+    end
+
+    def update_path(target,field,ptype="slave_path")
+        if ptype=="slave_path"
+            rep = /.+\.slave_path$/
+        elsif ptype=="master_path"
+            rep = /.+\.master_path$/
+        end
+        files=collect_path(field,"file",rep)
+        if files.empty?
+            File.open(File::join(field,"one.#{ptype}"),"w") do |f|
+                f.puts target
+            end
+            return nil
+        end
+        path_lines = []
+        files.each do |path_f|
+            File.open(path_f) do |pf|
+                path_lines += pf.readlines
+            end
+        end
+        path_lines.map!{|pl|pl.chomp}
+        path_lines.reject! {|pl| File::exist?(pl)}
+        unless files.include?(target)
+            File.open(files.last,"w+") do |f|
+                f.puts target
+            end
+        end
+    end
+
+    def update_script(source,target)
+        rb_files = ["HDLBranch.rb","run.rb"]
+        rb_files.each do |rf|
+            tf = File::join(target,rf)
+            sf = File::join(source,rf)
+            FileUtils.cp(sf,tf) unless File::exist?(tf)
+        end
+    end
+
 
     def cp_item(source,target)
         if (File::file?(source) && source =~ /\w+\.([vV]|[sS][vV]|[vV][hH][dD])$/)
