@@ -8,11 +8,15 @@ class HDLBranch
         @cur_branch_path = File::dirname path
         @slave_branch = []
         @master_branch = []
-        @slave_files = Dir["*.slave_path"]
-        @master_files = Dir["*.master_path"]
+        @cfg_path = File::join(@cur_branch_path,"cfg_branch_#{File::basename(@cur_branch_path)}")
+        Dir::mkdir(@cfg_path) unless File::exist?(@cfg_path)
+        paths = Dir::entries(@cfg_path)
+        paths = paths - %w(. ..)
+        @slave_files = paths.select{|cf| (cf =~ /\w+\.slave_path/) && File::file?(File::join(@cfg_path,cf))}
+        @master_files = paths.select{|cf| (cf =~ /\w+\.master_path/) && File::file?(File::join(@cfg_path,cf))}
         unless @slave_files.empty?
             @slave_files.each do |sf|
-                File::open(sf) do |f|
+                File::open(File::join(@cfg_path,sf)) do |f|
                     while !f.eof?
                         l = f.readline.chomp
                         if File::directory? l
@@ -24,7 +28,7 @@ class HDLBranch
         end
         unless @master_files.empty?
             @master_files.each do |mf|
-                File::open(mf) do |f|
+                File::open(File::join(@cfg_path,mf)) do |f|
                     while !f.eof?
                         l = f.readline.chomp
                         if File::directory? l
@@ -72,7 +76,9 @@ class HDLBranch
     def create_zip_bak(path)
         time = Time.new
         time_spec = "#{time.year}_#{time.month}_#{time.day}"
-        zip_file = File::join(path,"bak_#{time_spec}_#{find_bak_version(path)+1}.zip")
+        cfg_path = File::join(path,"cfg_branch_#{File::basename(path)}")
+        Dir::mkdir(cfg_path) unless File::exist?(cfg_path)
+        zip_file = File::join(cfg_path,"bak_#{File::basename(@cur_branch_path)}#{time_spec}_#{find_bak_version(cfg_path)+1}.zip")
         Zip::File.open(zip_file,Zip::File::CREATE) do |zipfile|
             zip_files  = verilog_files(path)|systemverilog_fils(path)|vhdl_files(path)
             rep = Regexp.new("^#{path}/")
@@ -86,7 +92,7 @@ class HDLBranch
         v = -1
         Dir.open(path) do |d|
             d.each do |fd|
-                fd =~ /^bak_\d{1,4}_\d{1,2}_\d{1,2}_(\d+)\.zip$/
+                fd =~ /^bak_\w*?\d{1,4}_\d{1,2}_\d{1,2}_(\d+)\.zip$/
                 v = $1.to_i if $1 && v<$1.to_i
             end
         end
@@ -181,6 +187,7 @@ class HDLBranch
         if (File::file?(source) && source =~ /\w+\.([vV]|[sS][vV]|[vV][hH][dD])$/)
             FileUtils.cp source,target
         elsif File::directory?(source)
+            return nil if File::basename(source) =~ /^cfg_branch_\w/
             Dir::mkdir(target) unless File::exist? target
             mp = Dir::entries(source)
             mp = mp - %w(. ..)

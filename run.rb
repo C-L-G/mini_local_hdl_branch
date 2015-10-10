@@ -34,5 +34,6 @@ sleep(3)
 #puts bl.sync_fork
 #puts bl.zip_files_path
 #bl.create_zip_bak
-
+#p bl.slave_files
+#p bl.master_files
 #p Dir::entries File::dirname(File::expand_path(__FILE__))
