@@ -25,6 +25,10 @@ class HDLBranch
                     end
                 end
             end
+            @slave_branch.uniq!
+        else
+            slave_path_file = File::join(@cfg_path,"first.slave_path")
+            File::open(slave_path_file,"w") {|f| f.puts " "}
         end
         unless @master_files.empty?
             @master_files.each do |mf|
@@ -37,6 +41,10 @@ class HDLBranch
                     end
                 end
             end
+            @master_branch.uniq!
+        else
+            master_path_file = File::join(@cfg_path,"first.master_path")
+            File::open(master_path_file,"w") {|f| f.puts " "}
         end
     end
 
@@ -72,6 +80,7 @@ class HDLBranch
             e.gsub(Regexp.new("^#{@cur_branch_path}/"),"")
         end
     end
+
 
     def create_zip_bak(path)
         time = Time.new
@@ -112,7 +121,7 @@ class HDLBranch
         #    cp_item maser_item,slave_item
         #end
         cp_item master_path,@cur_branch_path
-        update_path @cur_branch_path,master_path,"master_path"
+        update_path master_path,@cur_branch_path,"master_path"
         update_script  @cur_branch_path,master_path
         "DOWN BRANCH SUCCESS"
     end
@@ -129,7 +138,7 @@ class HDLBranch
         #    cp_item slave_item,maser_item
         #end
         cp_item @cur_branch_path,master_path
-        update_path @cur_branch_path,master_path,"slave_path"
+        update_path master_path,@cur_branch_path,"slave_path"
         update_script  @cur_branch_path,master_path
         "UP BRANCH SUCCESS"
     end
@@ -139,22 +148,24 @@ class HDLBranch
         @slave_branch.each do |sb|
             create_zip_bak sb
             cp_item @cur_branch_path,sb
-            update_path @cur_branch_path,sb,"master_path"
+            update_path sb,@cur_branch_path,"master_path"
             update_script  @cur_branch_path,sb
         end
         "SYNC FORK SUCCESS"
     end
 
-    def update_path(target,field,ptype="slave_path")
+    def update_path(target,source,ptype="slave_path")
         if ptype=="slave_path"
             rep = /.+\.slave_path$/
         elsif ptype=="master_path"
             rep = /.+\.master_path$/
         end
-        files=collect_path(field,"file",rep)
+        target_cfg_path = File::join(target,"cfg_branch_#{File::basename(target)}")
+        Dir::mkdir target_cfg_path unless File::exist? target_cfg_path
+        files=collect_path(target_cfg_path,"file",rep)
         if files.empty?
-            File.open(File::join(field,"one.#{ptype}"),"w") do |f|
-                f.puts target
+            File.open(File::join(target_cfg_path,"file.#{ptype}"),"w") do |f|
+                f.puts source
             end
             return nil
         end
@@ -164,11 +175,13 @@ class HDLBranch
                 path_lines += pf.readlines
             end
         end
+        path_lines.uniq!
         path_lines.map!{|pl|pl.chomp}
-        path_lines.reject! {|pl| File::exist?(pl)}
-        unless files.include?(target)
-            File.open(files.last,"w+") do |f|
-                f.puts target
+        path_lines = path_lines.select {|pl| File::exist?(pl) && File::directory?(pl)}
+        path_lines.uniq!
+        unless path_lines.include?(source)
+            File.open(files.last,"a+") do |f|
+                f.puts source
             end
         end
     end
