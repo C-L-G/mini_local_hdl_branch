@@ -1,3 +1,5 @@
+###--@--Young--@--###
+
 #Dir::chdir(File::dirname(File::expand_path(__FILE__)))
 require "rubygems"
 require "zip"
@@ -12,13 +14,13 @@ class HDLBranch
         Dir::mkdir(@cfg_path) unless File::exist?(@cfg_path)
         paths = Dir::entries(@cfg_path)
         paths = paths - %w(. ..)
-        @slave_files = paths.select{|cf| (cf =~ /\w+\.slave_path/) && File::file?(File::join(@cfg_path,cf))}
-        @master_files = paths.select{|cf| (cf =~ /\w+\.master_path/) && File::file?(File::join(@cfg_path,cf))}
+        @slave_files = paths.select{|cf| (cf =~ /\w+\.slave_path$/) && File::file?(File::join(@cfg_path,cf))}
+        @master_files = paths.select{|cf| (cf =~ /\w+\.master_path$/) && File::file?(File::join(@cfg_path,cf))}
         unless @slave_files.empty?
             @slave_files.each do |sf|
                 File::open(File::join(@cfg_path,sf)) do |f|
                     while !f.eof?
-                        l = f.readline.chomp
+                        l = f.readline.chomp.strip
                         if File::directory? l
                             @slave_branch << File::expand_path(l)
                         end
@@ -34,7 +36,7 @@ class HDLBranch
             @master_files.each do |mf|
                 File::open(File::join(@cfg_path,mf)) do |f|
                     while !f.eof?
-                        l = f.readline.chomp
+                        l = f.readline.chomp.strip
                         if File::directory? l
                             @master_branch << File::expand_path(l)
                         end
@@ -111,7 +113,6 @@ class HDLBranch
 
     def download
         return "DONT HAVE MASTER BRANCH" if @master_branch.empty?
-        create_zip_bak @cur_branch_path
         master_path = @master_branch.last
         #mp = Dir::entries(master_path)
         #mp = mp - %w(. ..)
@@ -120,16 +121,20 @@ class HDLBranch
         #    slave_item = File::join(@cur_branch_path,fitem)
         #    cp_item maser_item,slave_item
         #end
-        cp_item master_path,@cur_branch_path
-        update_path master_path,@cur_branch_path,"master_path"
+        puts "===========#{'='*(master_path).length}"
+        puts "UPDATE #{master_path} "
+        puts "TO #{@cur_branch_path}"
+        puts "===========#{'='*(@cur_branch_path).length}"
+        create_zip_bak @cur_branch_path if cp_item master_path,@cur_branch_path
+        update_path master_path,@cur_branch_path,"slave_path"
         update_script  @cur_branch_path,master_path
+        puts "-----------#{'-'*(@cur_branch_path).length}"
         "DOWN BRANCH SUCCESS"
     end
 
     def commit_up
         return "DONT HAVE MASTER BRANCH" if @master_branch.empty?
         master_path = @master_branch.last
-        create_zip_bak master_path
         #mp = Dir::entries(@cur_branch_path)
         #mp = mp - %w(. ..)
         #mp.each do |fitem|
@@ -137,19 +142,29 @@ class HDLBranch
         #    slave_item = File::join(@cur_branch_path,fitem)
         #    cp_item slave_item,maser_item
         #end
-        cp_item @cur_branch_path,master_path
+        puts "===========#{'='*(@cur_branch_path).length}"
+        puts "COMMIT #{@cur_branch_path}"
+        puts "TO #{master_path}"
+        puts "===========#{'='*(master_path).length}"
+        create_zip_bak master_path if cp_item @cur_branch_path,master_path
         update_path master_path,@cur_branch_path,"slave_path"
         update_script  @cur_branch_path,master_path
+        puts "-----------#{'-'*(master_path).length}"
         "UP BRANCH SUCCESS"
     end
 
     def sync_fork
         return "DONT HAVE SLAVE BRANCH" if @slave_branch.empty?
         @slave_branch.each do |sb|
-            create_zip_bak sb
+            puts "===========#{'='*(@cur_branch_path).length}"
+            puts "SYNC #{@cur_branch_path}"
+            puts "TO #{sb}"
+            puts "===========#{'='*(sb).length}"
             cp_item @cur_branch_path,sb
+            #create_zip_bak sb if cp_item @cur_branch_path,sb
             update_path sb,@cur_branch_path,"master_path"
             update_script  @cur_branch_path,sb
+            puts "-----------#{'-'*(sb).length}"
         end
         "SYNC FORK SUCCESS"
     end
@@ -191,14 +206,20 @@ class HDLBranch
         rb_files.each do |rf|
             tf = File::join(target,rf)
             sf = File::join(source,rf)
-            FileUtils.cp(sf,tf) unless File::exist?(tf)
+            FileUtils.cp(sf,tf)
         end
     end
 
 
     def cp_item(source,target)
-        if (File::file?(source) && source =~ /\w+\.([vV]|[sS][vV]|[vV][hH][dD])$/)
-            FileUtils.cp source,target
+        cp_exec=false
+        if (File::file?(source) && source =~ /\w+\.([vV]|[sS][vV]|[vV][hH][dD]|qip)$/)
+            if !File::exist?(target) || !FileUtils::cmp(source,target)
+                FileUtils.cp source,target
+                puts ">>>COPY>>>\t#{source}"
+                puts ">>>>TO>>>>\t#{target}"
+                cp_exec=true
+            end
         elsif File::directory?(source)
             return nil if File::basename(source) =~ /^cfg_branch_\w/
             Dir::mkdir(target) unless File::exist? target
@@ -207,8 +228,10 @@ class HDLBranch
             mp.each do |fitem|
                 maser_item = File::join(source,fitem)
                 slave_item = File::join(target,fitem)
-                cp_item maser_item,slave_item
+                #tmp_cp_exec = cp_item(maser_item,slave_item)
+                cp_exec= cp_item(maser_item,slave_item) || cp_exec
             end
+            cp_exec
         end
     end
 
@@ -235,3 +258,44 @@ class HDLBranch
     end
 
 end
+#### RUN SCRIPT #####
+$: << File::dirname(File::expand_path(__FILE__))
+require "HDLBranch"
+require "io/console"
+
+bl = HDLBranch.new
+
+puts "请选择："
+puts "1:从上级master 下载跟新"
+puts "2:提交代码到上级master"
+puts "3:同步下一级slave 分支代码"
+puts "4:退出"
+
+while word = gets.chomp
+    if word =~ /^[1234]$/
+        break
+    else
+        puts "请输入1-4"
+    end
+end
+
+case word
+when "1"
+    puts bl.download
+when "2"
+    puts bl.commit_up
+when "3"
+    puts bl.sync_fork
+else
+    puts "--@--Young--@--"
+end
+
+#sleep(3)
+puts "输入任意字符结束"
+puts gets.chomp
+#puts bl.sync_fork
+#puts bl.zip_files_path
+#bl.create_zip_bak
+#p bl.slave_files
+#p bl.master_files
+#p Dir::entries File::dirname(File::expand_path(__FILE__))
