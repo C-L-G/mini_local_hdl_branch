@@ -42,9 +42,9 @@ cfg_branch_XXXX 配置文件夹，用于保存上级的mater路径和下级的sl
 
 1、生成新的slave子分支：有两种方式
 
-（1）、在slave文件夹中的XX.master_path加入master工程代码的路径，运行run.rb 选“1”
+（1）、在slave文件夹中的XX.master_path加入master工程代码的路径，运行HDLBranch.rb 选“1”
 
-（2）、在master文件中的XX.slave_path加入slave的路径，运行run.rb 选 “3”
+（2）、在master文件中的XX.slave_path加入slave的路径，运行HDLBranch.rb 选 “3”
 
 2、commit 向上提交更新
 
