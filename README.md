@@ -13,9 +13,8 @@ win需要自行安装，这也是我讨厌win的原因之一，win什么环境�
 
 文件说明：
 
-HDLBranch.rb  主要代码块，定义所有关于版本控制的方法
+HDLBranch.rb  主要代码块，也是运行代码，定义所有关于版本控制的方法
 
-run.rb 运行代码，只要运行这个脚本即可，运行时会跳出对话框
 
 cfg_branch_XXXX 配置文件夹，用于保存上级的mater路径和下级的slave路径
 
@@ -23,7 +22,7 @@ cfg_branch_XXXX 配置文件夹，用于保存上级的mater路径和下级的sl
 
 |______XX.master_path 保存上级master的路径，文件每一行就是一个路径，只取最后一行，因为版本只能有一个master（父支），slave（子支）可以有多个
 
-运行run.rb后的对话框如下：
+运行HDLBranch.rb 后的对话框如下：
 
 --------------------------------
 
@@ -49,15 +48,15 @@ cfg_branch_XXXX 配置文件夹，用于保存上级的mater路径和下级的sl
 
 2、commit 向上提交更新
 
- 运行run.rb 选 “2”
+ 运行HDLBranch.rb  选 “2”
  
 3、从master下载更新
 
-  运行run.rb 选 “1”
+  运行HDLBranch.rb  选 “1”
   
 4、更新同步所有的slave
 
-  运行run.rb 选 “3”
+  运行HDLBranch.rb  选 “3”
   
 ===============================================================  
 
